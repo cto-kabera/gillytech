@@ -1,1 +1,0 @@
-ALTER TABLE chat_messages ADD COLUMN question_id UUID REFERENCES questions(id) ON DELETE CASCADE;
