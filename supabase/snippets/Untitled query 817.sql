@@ -1,0 +1,2 @@
+DELETE FROM public.users CASCADE;
+DELETE FROM auth.users CASCADE;
