@@ -9,7 +9,7 @@ import { setupWebSocket } from './websocket.js'
 
 const app = express()
 
-app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:4173'], credentials: true }))
+app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:4173', 'https://gillytech.vercel.app'], credentials: true }))
 app.use(express.json())
 
 // The custom /api/auth route has been removed since Supabase handles this now
