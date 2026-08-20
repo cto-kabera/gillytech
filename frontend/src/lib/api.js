@@ -1,4 +1,9 @@
-const BASE = '/api'
+// Grab the live Render URL from Vercel, or default to empty string for local dev proxy
+const API_URL = import.meta.env.VITE_API_URL || '';
+
+// Combine it with your /api prefix
+const BASE = `${API_URL}/api`;
+
 export const getToken = () => localStorage.getItem('gt_token')
 export const setToken = t => localStorage.setItem('gt_token', t)
 export const clearToken = () => localStorage.removeItem('gt_token')
