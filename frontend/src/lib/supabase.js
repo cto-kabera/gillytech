@@ -25,13 +25,6 @@ if (!url || !anon) {
   throw new Error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY')
 }
 
-// #region agent log
-try {
-  const raw = new URL(String(rawUrl || '').trim())
-  fetch('http://127.0.0.1:7852/ingest/afc955dc-9d20-480c-ae49-585cc1d8bbca',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4d36a5'},body:JSON.stringify({sessionId:'4d36a5',runId:'login-path',hypothesisId:'C',location:'frontend/src/lib/supabase.js',message:'normalized supabase url',data:{rawHost:raw.host,rawPath:raw.pathname,normalizedHost:new URL(url).host},timestamp:Date.now()})}).catch(()=>{})
-} catch (_) {}
-// #endregion
-
 export const supabase = createClient(url, anon, {
   auth: {
     persistSession: true,
