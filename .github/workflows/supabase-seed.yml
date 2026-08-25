@@ -12,7 +12,8 @@ jobs:
         working-directory: backend
     env:
       GILLY_SKIP_LOCAL: '1'
-      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      # Same project as migrate. Do not use the postgres:// database URI.
+      SUPABASE_URL: https://${{ secrets.SUPABASE_PROJECT_ID }}.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     steps:
       - uses: actions/checkout@v4

@@ -14,6 +14,7 @@ const demoUsers = [
 
 async function seedAuth() {
   console.log('Seeding Supabase Auth (creates public.users via trigger)...')
+  const failures = []
 
   for (const u of demoUsers) {
     const { error } = await supabaseAdmin.auth.admin.createUser({
@@ -27,10 +28,15 @@ async function seedAuth() {
         console.log(`• exists: ${u.email}`)
       } else {
         console.error(`Error creating ${u.email}:`, error.message)
+        failures.push(`${u.email}: ${error.message}`)
       }
     } else {
       console.log(`Created ${u.email}`)
     }
+  }
+
+  if (failures.length) {
+    throw new Error(`Auth seed failed for ${failures.length} user(s). Check SUPABASE_URL is https://<project-ref>.supabase.co`)
   }
 
   console.log('Auth seed done.')
