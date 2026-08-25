@@ -46,7 +46,9 @@ export function SessionsList() {
                       <div style={{ display: 'flex', gap: 6 }}>
                         {s.status === 'active' && <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/teacher/sessions/${s.id}/live`)}>Monitor</button>}
                         {s.status === 'draft' && <button className="btn btn-primary btn-sm" onClick={() => activate(s.id)}>Launch</button>}
-                        <button className="btn btn-ghost btn-sm" onClick={() => navigate(`/teacher/sessions/${s.id}/analytics`)}>Analytics</button>
+                        <button className="btn btn-ghost btn-sm" onClick={() => navigate(`/teacher/sessions/${s.id}/analytics`)}>
+                          {s.status === 'completed' ? 'Review' : 'Analytics'}
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -62,22 +64,25 @@ export function SessionsList() {
 
 export function ClassesList() {
   const [classes, setClasses] = useState([])
+  const [subjects, setSubjects] = useState([])
   const [loading, setLoading] = useState(true)
-  const [showNew, setShowNew] = useState(false)
-  const [form, setForm] = useState({ name: '', grade_level: '', subject: '' })
   const [selectedClass, setSelectedClass] = useState(null)
   const [students, setStudents] = useState([])
 
   const AVATAR_COLORS = ['#2563eb','#7c3aed','#059669','#d97706','#dc2626','#0891b2']
   const avatarColor = name => AVATAR_COLORS[(name||'').charCodeAt(0) % AVATAR_COLORS.length]
 
-  useEffect(() => { api.teacher.classes().then(d => setClasses(d.classes)).finally(() => setLoading(false)) }, [])
+  async function load() {
+    const [c, s] = await Promise.all([api.teacher.classes(), api.teacher.subjects()])
+    setClasses(c.classes); setSubjects(s.subjects)
+  }
 
-  async function createClass(e) {
-    e.preventDefault()
-    const { class: cls } = await api.teacher.createClass(form)
-    setClasses(c => [...c, { ...cls, enrolled: 0, sessions: 0 }])
-    setShowNew(false); setForm({ name: '', grade_level: '', subject: '' })
+  useEffect(() => { load().finally(() => setLoading(false)) }, [])
+
+  async function assignSubject(cls, subject_id) {
+    const { class: updated } = await api.teacher.patchClass(cls.id, { subject_id })
+    setClasses(list => list.map(c => c.id === cls.id ? { ...c, ...updated, enrolled: c.enrolled, sessions: c.sessions } : c))
+    if (selectedClass?.id === cls.id) setSelectedClass(s => ({ ...s, ...updated }))
   }
 
   async function loadStudents(cls) {
@@ -91,47 +96,31 @@ export function ClassesList() {
   return (
     <div>
       <div className="page-header">
-        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <div><h1 className="page-title">Classes</h1><p className="page-sub">Manage your classrooms and student rosters</p></div>
-          <button className="btn btn-primary" onClick={() => setShowNew(true)}>+ New class</button>
+        <div>
+          <h1 className="page-title">Classes</h1>
+          <p className="page-sub">Assign each class to a subject you teach. Rosters are managed by admin.</p>
         </div>
       </div>
       <div className="page-body">
-        {showNew && (
-          <div className="card" style={{ padding: 20, marginBottom: 20, border: '1.5px solid var(--brand-light)' }}>
-            <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 14 }}>New class</h3>
-            <form onSubmit={createClass}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">Class name</label>
-                  <input value={form.name} onChange={e => setForm(f=>({...f, name: e.target.value}))} placeholder="Form 3 Biology" required />
-                </div>
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">Grade level</label>
-                  <input value={form.grade_level} onChange={e => setForm(f=>({...f, grade_level: e.target.value}))} placeholder="Grade 9" />
-                </div>
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">Subject</label>
-                  <input value={form.subject} onChange={e => setForm(f=>({...f, subject: e.target.value}))} placeholder="Biology" />
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn btn-primary btn-sm" type="submit">Create class</button>
-                <button className="btn btn-ghost btn-sm" type="button" onClick={() => setShowNew(false)}>Cancel</button>
-              </div>
-            </form>
-          </div>
-        )}
-
         <div style={{ display: 'grid', gridTemplateColumns: selectedClass ? '1fr 1fr' : '1fr', gap: 20 }}>
           <div>
+            {classes.length === 0 && (
+              <div style={{ color: 'var(--gray-400)', padding: 40, textAlign: 'center' }}>No classes assigned yet. Ask an admin to create a class for you.</div>
+            )}
             {classes.map(c => (
               <div key={c.id} className="card" style={{ padding: 16, marginBottom: 10, cursor: 'pointer', border: selectedClass?.id === c.id ? '1.5px solid var(--brand)' : '' }} onClick={() => loadStudents(c)}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                  <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 3 }}>{c.name}</div>
-                    <div style={{ fontSize: 13, color: 'var(--gray-500)', marginBottom: 10 }}>{c.subject} · {c.grade_level}</div>
-                    <div style={{ display: 'flex', gap: 14, fontSize: 13, color: 'var(--gray-600)' }}>
+                    <div style={{ fontSize: 13, color: 'var(--gray-500)', marginBottom: 10 }}>{c.grade_level}</div>
+                    <div onClick={e => e.stopPropagation()}>
+                      <label className="form-label">Subject for this class</label>
+                      <select value={c.subject_id || ''} onChange={e => assignSubject(c, e.target.value)}>
+                        <option value="">Select subject…</option>
+                        {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                      </select>
+                    </div>
+                    <div style={{ display: 'flex', gap: 14, fontSize: 13, color: 'var(--gray-600)', marginTop: 10 }}>
                       <span>👥 {c.enrolled} students</span>
                       <span>📋 {c.sessions} sessions</span>
                     </div>

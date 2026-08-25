@@ -1,11 +1,6 @@
-import { createContext, useContext, useState, useEffect } from 'react'
-import { createClient } from '@supabase/supabase-js'
+import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { supabase } from '../lib/supabase'
 import { setToken, clearToken } from '../lib/api'
-
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL, 
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-)
 
 const Ctx = createContext(null)
 
@@ -13,52 +8,74 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    // Check active session on load
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        setToken(session.access_token)
-        fetchProfile(session.user.id)
-      } else {
-        setLoading(false)
-      }
-    })
+  const applySession = useCallback(async (session) => {
+    if (!session) {
+      clearToken()
+      setUser(null)
+      setLoading(false)
+      return
+    }
 
-    // Listen for auth changes (login/logout/token refresh)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        setToken(session.access_token)
-      } else {
-        clearToken()
-        setUser(null)
-      }
-    })
+    setToken(session.access_token)
 
-    return () => subscription.unsubscribe()
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, role, name, email, school_id, avatar, subject')
+      .eq('id', session.user.id)
+      .single()
+
+    if (error || !data) {
+      setUser(null)
+      setLoading(false)
+      return
+    }
+
+    setUser(data)
+    setLoading(false)
   }, [])
 
-  async function fetchProfile(userId) {
-    const { data, error } = await supabase.from('users').select('*').eq('id', userId).single()
-    if (!error && data) setUser(data)
-    setLoading(false)
-  }
+  useEffect(() => {
+    let cancelled = false
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!cancelled) applySession(session)
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      applySession(session)
+    })
+
+    return () => {
+      cancelled = true
+      subscription.unsubscribe()
+    }
+  }, [applySession])
 
   async function login(email, password) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw error
-    
+    if (!data.session) throw new Error('No session returned from Supabase Auth')
+
     setToken(data.session.access_token)
-    
-    // Fetch custom profile data (role, name)
-    const { data: profile } = await supabase.from('users').select('*').eq('id', data.user.id).single()
+
+    const { data: profile, error: profileErr } = await supabase
+      .from('users')
+      .select('id, role, name, email, school_id, avatar, subject')
+      .eq('id', data.user.id)
+      .single()
+
+    if (profileErr || !profile) {
+      throw new Error('Profile not found. Apply the SQL migration so auth.users syncs to public.users.')
+    }
+
     setUser(profile)
     return profile
   }
 
-  async function logout() { 
+  async function logout() {
     await supabase.auth.signOut()
     clearToken()
-    setUser(null) 
+    setUser(null)
   }
 
   return <Ctx.Provider value={{ user, loading, login, logout }}>{children}</Ctx.Provider>

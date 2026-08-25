@@ -1,46 +1,42 @@
-import 'dotenv/config'
-import { createClient } from '@supabase/supabase-js'
-import WebSocket from 'ws'
+import '../load-env.js'
+import { supabaseAdmin } from './supabase.js'
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    },
-    realtime: {
-      transport: WebSocket
-    }
-  }
-)
+const demoUsers = [
+  { email: 'admin@gillytech.dev', password: 'admin123', meta: { name: 'Admin User', role: 'admin' } },
+  { email: 'teacher@gillytech.dev', password: 'teacher123', meta: { name: 'Ms. Achieng Otieno', role: 'teacher', subject: 'Biology' } },
+  { email: 'amara@gillytech.dev', password: 'student123', meta: { name: 'Amara Osei', role: 'student' } },
+  { email: 'brian@gillytech.dev', password: 'student123', meta: { name: 'Brian Mwangi', role: 'student' } },
+  { email: 'cynthia@gillytech.dev', password: 'student123', meta: { name: 'Cynthia Wanjiku', role: 'student' } },
+  { email: 'david@gillytech.dev', password: 'student123', meta: { name: 'David Otieno', role: 'student' } },
+  { email: 'esther@gillytech.dev', password: 'student123', meta: { name: 'Esther Akinyi', role: 'student' } },
+  { email: 'felix@gillytech.dev', password: 'student123', meta: { name: 'Felix Kamau', role: 'student' } },
+]
 
 async function seedAuth() {
-  console.log('Seeding Supabase Auth...')
-
-  const demoUsers = [
-    { email: 'admin@gillytech.dev', password: 'admin123', meta: { name: 'Admin User', role: 'admin' } },
-    { email: 'teacher@gillytech.dev', password: 'teacher123', meta: { name: 'Ms. Achieng Otieno', role: 'teacher' } },
-    { email: 'amara@gillytech.dev', password: 'student123', meta: { name: 'Amara Osei', role: 'student' } }
-  ]
+  console.log('Seeding Supabase Auth (creates public.users via trigger)...')
 
   for (const u of demoUsers) {
-    const { data, error } = await supabase.auth.admin.createUser({
+    const { error } = await supabaseAdmin.auth.admin.createUser({
       email: u.email,
       password: u.password,
       email_confirm: true,
-      user_metadata: u.meta 
+      user_metadata: u.meta
     })
-
     if (error) {
-      console.error(`❌ Error creating ${u.email}:`, error.message)
+      if (String(error.message).toLowerCase().includes('already')) {
+        console.log(`• exists: ${u.email}`)
+      } else {
+        console.error(`Error creating ${u.email}:`, error.message)
+      }
     } else {
-      console.log(`✅ Created user: ${u.email}`)
+      console.log(`Created ${u.email}`)
     }
   }
-  
-  console.log('Done! Check the Authentication tab in Supabase Studio.')
+
+  console.log('Auth seed done.')
 }
 
-seedAuth()
+seedAuth().catch((err) => {
+  console.error(err)
+  process.exit(1)
+})

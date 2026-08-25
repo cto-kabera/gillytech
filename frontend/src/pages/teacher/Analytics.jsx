@@ -9,15 +9,19 @@ export default function Analytics() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [data, setData] = useState(null)
+  const [review, setReview] = useState(null)
   const [tab, setTab] = useState('overview')
 
-  useEffect(() => { api.teacher.analytics(id).then(setData) }, [id])
+  useEffect(() => {
+    api.teacher.analytics(id).then(setData)
+    api.teacher.review(id).then(setReview).catch(() => {})
+  }, [id])
 
   if (!data) return <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}><div className="spinner spin" /></div>
 
   const { session, enrolled, active_students, total_submissions, overall_accuracy, studentLeaderboard, groupLeaderboard, questionStats, cbcScores } = data
 
-  const TABS = ['overview', 'students', 'questions', 'cbc']
+  const TABS = ['overview', 'students', 'questions', 'reasoning', 'chats', 'cbc']
 
   return (
     <div>
@@ -159,6 +163,46 @@ export default function Analytics() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {tab === 'reasoning' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {(review?.submissions || []).length === 0 && <div style={{ color: 'var(--gray-400)', padding: 24 }}>No submissions yet.</div>}
+            {(review?.submissions || []).map(s => (
+              <div className="card" key={s.id} style={{ padding: 16 }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                  <span style={{ fontWeight: 600, fontSize: 14 }}>{s.student_name}</span>
+                  <span className={`badge ${s.is_correct ? 'badge-green' : 'badge-red'}`}>{s.is_correct ? 'Correct' : 'Wrong'}</span>
+                  <span style={{ fontSize: 12, color: 'var(--gray-400)', marginLeft: 'auto' }}>{s.score} pts</span>
+                </div>
+                <p style={{ fontSize: 13, color: 'var(--gray-700)', lineHeight: 1.6, background: 'var(--gray-50)', padding: 10, borderRadius: 8 }}>{s.reasoning_text || '—'}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tab === 'chats' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {(review?.chats || []).length === 0 && <div style={{ color: 'var(--gray-400)', padding: 24 }}>No group chat messages in this session.</div>}
+            {(review?.groups || []).map(g => {
+              const msgs = (review?.chats || []).filter(m => m.group_id === g.id)
+              if (!msgs.length) return null
+              return (
+                <div className="card" key={g.id} style={{ padding: 16 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: g.color }} />
+                    <strong style={{ fontSize: 14 }}>{g.name}</strong>
+                  </div>
+                  {msgs.map(m => (
+                    <div key={m.id} style={{ fontSize: 13, padding: '6px 0', borderBottom: '1px solid var(--gray-100)' }}>
+                      <span style={{ fontWeight: 600 }}>{m.sender_name}: </span>
+                      {m.message}
+                    </div>
+                  ))}
+                </div>
+              )
+            })}
           </div>
         )}
 

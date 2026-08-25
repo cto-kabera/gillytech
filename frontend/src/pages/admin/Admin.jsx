@@ -3,7 +3,12 @@ import { Outlet, useNavigate } from 'react-router-dom'
 import Sidebar from '../../components/shared/Sidebar'
 import { api } from '../../lib/api'
 
-const NAV = [{ path: '/admin', icon: '📊', label: 'Overview' }]
+const NAV = [
+  { path: '/admin', icon: '📊', label: 'Overview' },
+  { path: '/admin/users', icon: '👥', label: 'Users' },
+  { path: '/admin/subjects', icon: '📘', label: 'Subjects' },
+  { path: '/admin/classes', icon: '🏫', label: 'Classes' },
+]
 
 export function AdminLayout() {
   return (

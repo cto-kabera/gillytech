@@ -13,6 +13,7 @@ import { StudentLayout, StudentHome } from './pages/student/StudentHome'
 import StudentSession from './pages/student/StudentSession'
 import StudentProfile from './pages/student/Profile'
 import { AdminLayout, AdminDashboard } from './pages/admin/Admin'
+import { AdminUsers, AdminSubjects, AdminClasses } from './pages/admin/Manage'
 
 function Guard({ children, role }) {
   const { user, loading } = useAuth()
@@ -50,6 +51,9 @@ export default function App() {
           {/* Admin */}
           <Route path="/admin" element={<Guard role="admin"><AdminLayout /></Guard>}>
             <Route index element={<AdminDashboard />} />
+            <Route path="users" element={<AdminUsers />} />
+            <Route path="subjects" element={<AdminSubjects />} />
+            <Route path="classes" element={<AdminClasses />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/login" replace />} />

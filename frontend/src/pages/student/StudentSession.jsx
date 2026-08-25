@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useLocation, useNavigate } from 'react-router-dom'
 import { api } from '../../lib/api'
-import { useWebSocket } from '../../hooks/useWebSocket'
+import { useRealtimeSession } from '../../hooks/useRealtimeSession'
 import { useAuth } from '../../hooks/useAuth'
 
 const AVATAR_COLORS = ['#2563eb','#7c3aed','#059669','#d97706','#dc2626','#0891b2','#be185d','#0f766e']
@@ -127,19 +127,34 @@ export default function StudentSession() {
     api.student.leaderboard(id).then(setLeaderboard).catch(() => {})
   }, [id])
 
-  const handleWs = useCallback(msg => {
-    if (msg.type === 'chat') setMessages(prev => [...prev, msg.message])
-    if (msg.type === 'question_advance' || msg.type === 'session_update') {
+  const handleRealtime = useCallback(msg => {
+    if (msg.type === 'chat' && msg.message) {
+      setMessages(prev => prev.some(m => m.id === msg.message.id) ? prev : [...prev, msg.message])
+    }
+    if (msg.type === 'session_update') {
       setResult(null); setPhase('reason'); setReasoning(''); setSelected(null); setMessages([])
       loadState().then(s => { if (s.question?.id) loadChat(s.question.id) })
     }
   }, [id])
 
-  const { send, connected } = useWebSocket(id, handleWs)
+  const groupId = state?.group?.id || sessionData?.group?.id
+  const { connected } = useRealtimeSession({
+    sessionId: id,
+    groupId,
+    isStaff: false,
+    onEvent: handleRealtime
+  })
 
-  function sendChat(text) {
+  async function sendChat(text) {
     if (!state?.question?.id) return
-    send({ type: 'chat', text, questionId: state.question.id })
+    try {
+      const { message } = await api.student.sendChat(id, { text, question_id: state.question.id })
+      if (message) {
+        setMessages(prev => prev.some(m => m.id === message.id) ? prev : [...prev, message])
+      }
+    } catch (err) {
+      alert(err.message)
+    }
   }
 
   async function handleSubmit() {
@@ -154,8 +169,8 @@ export default function StudentSession() {
   }
 
   const q = state?.question
-  const group = sessionData?.group
-  const groupMates = sessionData?.groupMates || []
+  const group = state?.group || sessionData?.group
+  const groupMates = state?.groupMates || sessionData?.groupMates || []
   const reasoningOk = reasoning.trim().length > 20
 
   return (

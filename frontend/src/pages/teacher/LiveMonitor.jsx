@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../../lib/api'
-import { useWebSocket } from '../../hooks/useWebSocket'
+import { useRealtimeSession } from '../../hooks/useRealtimeSession'
 
 export default function LiveMonitor() {
   const { id } = useParams()
@@ -13,12 +13,12 @@ export default function LiveMonitor() {
     try { const d = await api.teacher.live(id); setData(d) } catch {}
   }
 
-  useEffect(() => { load(); const t = setInterval(load, 4000); return () => clearInterval(t) }, [id])
+  useEffect(() => { load() }, [id])
 
-  const handleWs = useCallback(msg => {
-    if (['chat','presence','submission'].includes(msg.type)) load()
+  const handleRealtime = useCallback(msg => {
+    if (msg.type === 'submission' || msg.type === 'session_update' || msg.type === 'chat') load()
   }, [id])
-  useWebSocket(id, handleWs)
+  useRealtimeSession({ sessionId: id, isStaff: true, onEvent: handleRealtime })
 
   async function advance() {
     if (!data) return
