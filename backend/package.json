@@ -1,6 +1,6 @@
 {
   "name": "gillytech-backend",
-  "version": "1.0.0-alpha.1",
+  "version": "1.0.0-alpha.2",
   "type": "module",
   "scripts": {
     "start": "node src/index.js",

@@ -1,7 +1,7 @@
 -- Gillytech MVP schema: Supabase Auth sync, Postgres, RLS, Realtime.
--- Apply in the Supabase SQL editor or via `supabase db push`.
+-- Applied via `supabase db push` (local or GitHub Actions). Do not paste piecemeal.
 
-create extension if not exists "pgcrypto";
+-- gen_random_uuid() is already available on Supabase (do not CREATE EXTENSION pgcrypto).
 
 -- ---------------------------------------------------------------------------
 -- Tables
@@ -184,7 +184,7 @@ $$;
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
-  for each row execute procedure public.handle_new_user();
+  for each row execute function public.handle_new_user();
 
 -- ---------------------------------------------------------------------------
 -- Trusted scoring (service_role only)
@@ -277,7 +277,7 @@ grant execute on function public.submit_reasoned_answer(uuid, uuid, uuid, uuid, 
 -- RLS helpers
 -- ---------------------------------------------------------------------------
 
-create or replace function public.current_role()
+create or replace function public.app_user_role()
 returns text
 language sql
 stable
@@ -357,13 +357,13 @@ create policy schools_read on public.schools for select to authenticated
 
 drop policy if exists users_select_self on public.users;
 create policy users_select_self on public.users for select to authenticated
-  using (id = auth.uid() or public.current_role() in ('teacher', 'admin'));
+  using (id = auth.uid() or public.app_user_role() in ('teacher', 'admin'));
 
 drop policy if exists classes_select on public.classes;
 create policy classes_select on public.classes for select to authenticated
   using (
     teacher_id = auth.uid()
-    or public.current_role() = 'admin'
+    or public.app_user_role() = 'admin'
     or exists (select 1 from public.enrollments e where e.class_id = classes.id and e.student_id = auth.uid())
   );
 
@@ -371,7 +371,7 @@ drop policy if exists enrollments_select on public.enrollments;
 create policy enrollments_select on public.enrollments for select to authenticated
   using (
     student_id = auth.uid()
-    or public.current_role() = 'admin'
+    or public.app_user_role() = 'admin'
     or exists (select 1 from public.classes c where c.id = enrollments.class_id and c.teacher_id = auth.uid())
   );
 
@@ -379,7 +379,7 @@ drop policy if exists sessions_select on public.sessions;
 create policy sessions_select on public.sessions for select to authenticated
   using (
     teacher_id = auth.uid()
-    or public.current_role() = 'admin'
+    or public.app_user_role() = 'admin'
     or public.is_enrolled_in_session(id)
   );
 
@@ -387,7 +387,7 @@ drop policy if exists groups_select on public.groups;
 create policy groups_select on public.groups for select to authenticated
   using (
     public.is_session_teacher(session_id)
-    or public.current_role() = 'admin'
+    or public.app_user_role() = 'admin'
     or public.is_group_member(id)
   );
 
@@ -395,7 +395,7 @@ drop policy if exists group_members_select on public.group_members;
 create policy group_members_select on public.group_members for select to authenticated
   using (
     student_id = auth.uid()
-    or public.current_role() = 'admin'
+    or public.app_user_role() = 'admin'
     or exists (
       select 1 from public.groups g
       where g.id = group_members.group_id and public.is_session_teacher(g.session_id)
@@ -409,30 +409,30 @@ create policy group_members_select on public.group_members for select to authent
 -- Students never read questions via the client (answer key lives here).
 drop policy if exists questions_select_staff on public.questions;
 create policy questions_select_staff on public.questions for select to authenticated
-  using (public.is_session_teacher(session_id) or public.current_role() = 'admin');
+  using (public.is_session_teacher(session_id) or public.app_user_role() = 'admin');
 
 drop policy if exists question_bank_select on public.question_bank;
 create policy question_bank_select on public.question_bank for select to authenticated
-  using (teacher_id = auth.uid() or public.current_role() = 'admin');
+  using (teacher_id = auth.uid() or public.app_user_role() = 'admin');
 
 drop policy if exists submissions_select on public.submissions;
 create policy submissions_select on public.submissions for select to authenticated
   using (
     student_id = auth.uid()
     or public.is_session_teacher(session_id)
-    or public.current_role() = 'admin'
+    or public.app_user_role() = 'admin'
   );
 
 drop policy if exists badges_select on public.badges;
 create policy badges_select on public.badges for select to authenticated
-  using (student_id = auth.uid() or public.current_role() in ('teacher', 'admin'));
+  using (student_id = auth.uid() or public.app_user_role() in ('teacher', 'admin'));
 
 drop policy if exists chat_select on public.chat_messages;
 create policy chat_select on public.chat_messages for select to authenticated
   using (
     public.is_group_member(group_id)
     or public.is_session_teacher(session_id)
-    or public.current_role() = 'admin'
+    or public.app_user_role() = 'admin'
   );
 
 -- ---------------------------------------------------------------------------

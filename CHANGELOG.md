@@ -42,6 +42,19 @@ First alpha of the live stack: Supabase Auth + Postgres + Realtime, Express for 
 
 - First-correct badge insert no longer references a non-existent `badges.question_id` column.
 
+---
+
+## [1.0.0-alpha.2] — 2026-08-25
+
+### Added
+
+- GitHub Action: apply `supabase/migrations` to the linked cloud project on push to `main`.
+
+### Fixed
+
+- Cloud init no longer tries to `CREATE EXTENSION pgcrypto` (that statement fails on hosted Supabase).
+- Renamed RLS helper `current_role()` to `app_user_role()` (clashes with Postgres).
+
 ### Unreleased
 
-- (Next work goes here, then promote into `1.0.0-alpha.2` on the next push.)
+- (Next work goes here, then promote into `1.0.0-alpha.3` on the next push.)

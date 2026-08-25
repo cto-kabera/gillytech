@@ -38,11 +38,11 @@ $$;
 
 drop policy if exists subjects_read on public.subjects;
 create policy subjects_read on public.subjects for select to authenticated
-  using (school_id = public.current_school_id() or public.current_role() = 'admin' or school_id is null);
+  using (school_id = public.current_school_id() or public.app_user_role() = 'admin' or school_id is null);
 
 drop policy if exists teacher_subjects_read on public.teacher_subjects;
 create policy teacher_subjects_read on public.teacher_subjects for select to authenticated
-  using (teacher_id = auth.uid() or public.current_role() = 'admin');
+  using (teacher_id = auth.uid() or public.app_user_role() = 'admin');
 
 -- Backfill subjects from existing class/bank text
 insert into public.subjects (school_id, name)
