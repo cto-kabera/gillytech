@@ -8,6 +8,7 @@ const NAV = [
   { path: '/admin/users', icon: '👥', label: 'Users' },
   { path: '/admin/subjects', icon: '📘', label: 'Subjects' },
   { path: '/admin/classes', icon: '🏫', label: 'Classes' },
+  { path: '/admin/history', icon: '🧠', label: 'Reasoning' },
 ]
 
 export function AdminLayout() {

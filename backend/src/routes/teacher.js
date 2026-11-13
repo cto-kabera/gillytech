@@ -253,6 +253,14 @@ teacherRouter.patch('/sessions/:id', async (req, res) => {
   }
   if (current_question_index !== undefined) updateData.current_question_index = current_question_index
 
+  const activating = status === 'active' && existing.status !== 'active'
+  const advancing =
+    current_question_index !== undefined &&
+    Number(current_question_index) !== Number(existing.current_question_index)
+  if (activating || advancing) {
+    updateData.current_question_shown_at = new Date().toISOString()
+  }
+
   const { data: session, error } = await supabaseAdmin
     .from('sessions')
     .update(updateData)

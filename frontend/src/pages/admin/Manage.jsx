@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../../lib/api'
 
 export function AdminUsers() {
+  const navigate = useNavigate()
   const [users, setUsers] = useState([])
   const [subjects, setSubjects] = useState([])
   const [form, setForm] = useState({ name: '', email: '', password: '', role: 'teacher', subject_ids: [] })
@@ -86,7 +88,12 @@ export function AdminUsers() {
                   <td style={{ fontSize: 13, color: 'var(--gray-500)' }}>{u.email}</td>
                   <td><span className="badge badge-gray">{u.role}</span></td>
                   <td style={{ fontSize: 12 }}>{(u.subjects || []).map(s => s.name).join(', ') || u.subject || '—'}</td>
-                  <td><button className="btn btn-danger btn-sm" onClick={() => remove(u.id)}>Delete</button></td>
+                  <td style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                    {u.role === 'student' && (
+                      <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/admin/history?studentId=${u.id}`)}>History</button>
+                    )}
+                    <button className="btn btn-danger btn-sm" onClick={() => remove(u.id)}>Delete</button>
+                  </td>
                 </tr>
               ))}
             </tbody>

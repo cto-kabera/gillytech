@@ -14,6 +14,7 @@ import StudentSession from './pages/student/StudentSession'
 import StudentProfile from './pages/student/Profile'
 import { AdminLayout, AdminDashboard } from './pages/admin/Admin'
 import { AdminUsers, AdminSubjects, AdminClasses } from './pages/admin/Manage'
+import { AdminHistory } from './pages/admin/History'
 
 function Guard({ children, role }) {
   const { user, loading } = useAuth()
@@ -54,6 +55,7 @@ export default function App() {
             <Route path="users" element={<AdminUsers />} />
             <Route path="subjects" element={<AdminSubjects />} />
             <Route path="classes" element={<AdminClasses />} />
+            <Route path="history" element={<AdminHistory />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/login" replace />} />

@@ -60,7 +60,7 @@ export default function StudentProfile() {
           <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 16 }}>CBC competency indicators</h3>
           {[
             { label: 'Critical thinking & problem solving', value: stats.accuracy, color: 'var(--brand)' },
-            { label: 'Reasoning quality', value: stats.total_submissions > 0 ? Math.min(100, Math.round(stats.accuracy * 0.9)) : 0, color: 'var(--warning)' },
+            { label: 'Reasoning quality', value: stats.reasoning_quality ?? 0, color: 'var(--warning)' },
             { label: 'Participation & engagement', value: stats.total_submissions > 0 ? 85 : 0, color: 'var(--success)' },
           ].map(c => (
             <div key={c.label} style={{ marginBottom: 14 }}>

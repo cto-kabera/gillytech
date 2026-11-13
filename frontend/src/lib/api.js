@@ -56,6 +56,39 @@ export const api = {
     deleteUser: id => req(`/admin/users/${id}`, { method: 'DELETE' }),
     classes: () => req('/admin/classes'),
     createClass: body => req('/admin/classes', { method: 'POST', body }),
-    enroll: (classId, body) => req(`/admin/classes/${classId}/enroll`, { method: 'POST', body })
+    enroll: (classId, body) => req(`/admin/classes/${classId}/enroll`, { method: 'POST', body }),
+    history: (params = {}) => {
+      const q = new URLSearchParams()
+      if (params.studentId) q.set('studentId', params.studentId)
+      if (params.sessionId) q.set('sessionId', params.sessionId)
+      if (params.limit) q.set('limit', String(params.limit))
+      if (params.cursor) q.set('cursor', params.cursor)
+      const qs = q.toString()
+      return req(`/admin/history${qs ? `?${qs}` : ''}`)
+    },
+    exportHistory: async (params = {}) => {
+      const q = new URLSearchParams()
+      if (params.studentId) q.set('studentId', params.studentId)
+      if (params.sessionId) q.set('sessionId', params.sessionId)
+      q.set('format', params.format || 'csv')
+      if (params.pseudonymised) q.set('pseudonymised', '1')
+      const token = getToken()
+      const res = await fetch(`${BASE}/admin/history/export?${q}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Export failed')
+      }
+      const blob = await res.blob()
+      const match = /filename="?([^"]+)"?/i.exec(res.headers.get('Content-Disposition') || '')
+      const filename = match?.[1] || `gillytech-history.${params.format === 'json' ? 'json' : 'csv'}`
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      a.click()
+      URL.revokeObjectURL(url)
+    }
   }
 }

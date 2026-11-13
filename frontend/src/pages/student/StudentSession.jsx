@@ -3,6 +3,7 @@ import { useParams, useLocation, useNavigate } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { useRealtimeSession } from '../../hooks/useRealtimeSession'
 import { useAuth } from '../../hooks/useAuth'
+import { useReasoningTimer } from '../../hooks/useReasoningTimer'
 
 const AVATAR_COLORS = ['#2563eb','#7c3aed','#059669','#d97706','#dc2626','#0891b2','#be185d','#0f766e']
 const avatarColor = name => AVATAR_COLORS[(name||'').charCodeAt(0) % AVATAR_COLORS.length]
@@ -106,6 +107,7 @@ export default function StudentSession() {
   const [phase, setPhase] = useState('reason')
   const [reasoning, setReasoning] = useState('')
   const [selected, setSelected] = useState(null)
+  const timer = useReasoningTimer(state?.question?.id)
 
   async function loadState() {
     const s = await api.student.state(id)
@@ -161,7 +163,12 @@ export default function StudentSession() {
     if (selected === null) return
     setSubmitting(true)
     try {
-      const res = await api.student.submit(id, { question_id: state.question.id, reasoning_text: reasoning, answer: String(selected) })
+      const res = await api.student.submit(id, {
+        question_id: state.question.id,
+        reasoning_text: reasoning,
+        answer: String(selected),
+        timing: timer.collect()
+      })
       setResult({ ...res.submission, correct_answer: res.correct_answer, is_correct: res.is_correct, is_first_correct: res.is_first_correct, score: res.score, options: res.options })
       api.student.leaderboard(id).then(setLeaderboard).catch(() => {})
     } catch (err) { alert(err.message) }
@@ -281,7 +288,7 @@ export default function StudentSession() {
                   <div>
                     <div className="form-group">
                       <label className="form-label">Explain your reasoning before answering</label>
-                      <textarea value={reasoning} onChange={e => setReasoning(e.target.value)} autoFocus
+                      <textarea value={reasoning} onChange={e => { setReasoning(e.target.value); timer.onReasoningChange(e.target.value) }} autoFocus
                         placeholder="What do you think the answer is and why? Use scientific vocabulary. Discuss with your group first…"
                         style={{ minHeight: 120 }} />
                       <div className="form-hint" style={{ color: reasoningOk ? 'var(--success)' : 'var(--gray-400)' }}>
@@ -303,7 +310,7 @@ export default function StudentSession() {
                     <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--gray-700)', marginBottom: 10 }}>Select the best answer:</div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
                       {(q.content_json?.options||[]).map((opt, i) => (
-                        <button key={i} onClick={() => setSelected(i)} style={{
+                        <button key={i} onClick={() => { setSelected(i); timer.onAnswerSelected() }} style={{
                           textAlign: 'left', padding: '14px 16px', borderRadius: 'var(--radius-lg)',
                           border: selected===i ? '2px solid var(--brand)' : '1.5px solid var(--gray-200)',
                           background: selected===i ? 'var(--brand-light)' : 'var(--white)',

@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { auth, requireRole } from '../middleware/auth.js'
 import { supabaseAdmin } from '../db/supabase.js'
 import { initialsFromName, joinCode } from '../lib/access.js'
+import { toHistoryEntry, toExportRow, rowsToCsv } from '../lib/history.js'
 
 export const adminRouter = Router()
 adminRouter.use(auth, requireRole('admin'))
@@ -227,4 +228,88 @@ adminRouter.post('/classes/:id/enroll', async (req, res) => {
   const { error } = await supabaseAdmin.from('enrollments').upsert(rows, { onConflict: 'class_id,student_id' })
   if (error) return res.status(500).json({ error: error.message })
   res.json({ enrolled: rows.length })
+})
+
+const HISTORY_SELECT = '*, sessions(id, title, classes(subject, name)), questions(content_json, correct_answer), users(id, name, email)'
+
+async function queryHistoryPage({ studentId, sessionId, cursor, limit }) {
+  let q = supabaseAdmin
+    .from('submissions')
+    .select(HISTORY_SELECT)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (studentId) q = q.eq('student_id', studentId)
+  if (sessionId) q = q.eq('session_id', sessionId)
+  if (cursor) q = q.lt('created_at', cursor)
+  return q
+}
+
+adminRouter.get('/history/export', async (req, res) => {
+  const studentId = req.query.studentId || null
+  const sessionId = req.query.sessionId || null
+  const format = String(req.query.format || 'csv').toLowerCase()
+  const pseudonymised = req.query.pseudonymised === '1' || req.query.pseudonymised === 'true'
+  const max = 5000
+  const pageSize = 200
+
+  const entries = []
+  let cursor = null
+  while (entries.length < max) {
+    const { data, error } = await queryHistoryPage({
+      studentId,
+      sessionId,
+      cursor,
+      limit: Math.min(pageSize, max - entries.length)
+    })
+    if (error) return res.status(500).json({ error: error.message })
+    const rows = data || []
+    if (!rows.length) break
+    entries.push(...rows.map(toHistoryEntry))
+    if (rows.length < pageSize) break
+    cursor = rows[rows.length - 1].created_at
+  }
+
+  const exportRows = entries.map(e => toExportRow(e, { pseudonymised }))
+  const stamp = new Date().toISOString().slice(0, 10)
+  const suffix = pseudonymised ? 'pseudonymised' : 'identified'
+
+  if (format === 'json') {
+    res.setHeader('Content-Type', 'application/json')
+    res.setHeader('Content-Disposition', `attachment; filename="gillytech-history-${suffix}-${stamp}.json"`)
+    return res.send(JSON.stringify({
+      exportedAt: new Date().toISOString(),
+      pseudonymised,
+      count: exportRows.length,
+      entries: exportRows
+    }, null, 2))
+  }
+
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+  res.setHeader('Content-Disposition', `attachment; filename="gillytech-history-${suffix}-${stamp}.csv"`)
+  res.send(rowsToCsv(exportRows))
+})
+
+adminRouter.get('/history', async (req, res) => {
+  const studentId = req.query.studentId || null
+  const sessionId = req.query.sessionId || null
+  const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20))
+  const cursor = req.query.cursor || null
+
+  const { data, error } = await queryHistoryPage({
+    studentId,
+    sessionId,
+    cursor,
+    limit: limit + 1
+  })
+  if (error) return res.status(500).json({ error: error.message })
+
+  const rows = data || []
+  const hasMore = rows.length > limit
+  const page = hasMore ? rows.slice(0, limit) : rows
+
+  res.json({
+    entries: page.map(toHistoryEntry),
+    nextCursor: hasMore ? page[page.length - 1].created_at : null
+  })
 })

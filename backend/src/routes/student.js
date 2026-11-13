@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { auth, requireRole } from '../middleware/auth.js'
 import { supabaseAdmin } from '../db/supabase.js'
 import { studentGroupForSession, groupMates, clientQuestion, assignToSmallestGroup } from '../lib/access.js'
+import { deriveTiming } from '../lib/deriveTiming.js'
 
 export const studentRouter = Router()
 studentRouter.use(auth, requireRole('student', 'admin'))
@@ -89,12 +90,14 @@ studentRouter.get('/session/:id/state', async (req, res) => {
 })
 
 studentRouter.post('/session/:id/submit', async (req, res) => {
-  const { question_id, reasoning_text, answer } = req.body || {}
+  const { question_id, reasoning_text, answer, timing: clientTiming } = req.body || {}
   if (!question_id || answer === undefined) {
     return res.status(400).json({ error: 'question_id and answer required' })
   }
 
   const { group } = await studentGroupForSession(req.user.id, req.params.id)
+  const { data: sessionRow } = await supabaseAdmin.from('sessions').select('*').eq('id', req.params.id).single()
+  const { data: questionRow } = await supabaseAdmin.from('questions').select('*').eq('id', question_id).maybeSingle()
 
   const { data, error } = await supabaseAdmin.rpc('submit_reasoned_answer', {
     p_session_id: req.params.id,
@@ -105,16 +108,34 @@ studentRouter.post('/session/:id/submit', async (req, res) => {
     p_answer: String(answer)
   })
 
-  // #region agent log
-  fetch('http://127.0.0.1:7852/ingest/afc955dc-9d20-480c-ae49-585cc1d8bbca',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4d36a5'},body:JSON.stringify({sessionId:'4d36a5',runId:'pre-fix',hypothesisId:'A',location:'student.js:submit',message:'submit_reasoned_answer result',data:{ok:!error,code:error?.code||null,msg:error?.message||null,hasData:Boolean(data),isFirst:data?.is_first_correct??null},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
-
   if (error) {
     const msg = error.message || 'Submit failed'
     if (msg.includes('Already submitted')) return res.status(409).json({ error: msg })
     if (msg.includes('Reasoning too short')) return res.status(400).json({ error: msg })
     if (msg.includes('not active')) return res.status(400).json({ error: msg })
     return res.status(500).json({ error: msg })
+  }
+
+  const subId = data?.submission?.id
+  if (subId) {
+    const shownAt =
+      sessionRow?.current_question_shown_at ||
+      sessionRow?.started_at ||
+      new Date().toISOString()
+    const timing = deriveTiming(shownAt, new Date(), clientTiming)
+    const { data: patched, error: patchErr } = await supabaseAdmin
+      .from('submissions')
+      .update({
+        question_text: questionRow?.content_json?.text || null,
+        options_json: questionRow?.content_json?.options || null,
+        correct_answer_snapshot: questionRow?.correct_answer ?? null,
+        timing
+      })
+      .eq('id', subId)
+      .select()
+      .maybeSingle()
+    if (patchErr) console.error('history snapshot/timing update failed', patchErr.message)
+    if (patched) data.submission = patched
   }
 
   res.json(data)
@@ -198,12 +219,14 @@ studentRouter.get('/profile', async (req, res) => {
   const { data: user, error } = await supabaseAdmin.from('users').select('*').eq('id', req.user.id).single()
   if (error || !user) return res.status(404).json({ error: 'Not found' })
 
-  const { data: subs } = await supabaseAdmin.from('submissions').select('score, is_correct').eq('student_id', req.user.id)
+  const { data: subs } = await supabaseAdmin.from('submissions').select('score, is_correct, reasoning_text').eq('student_id', req.user.id)
   const { data: badges } = await supabaseAdmin.from('badges').select('*').eq('student_id', req.user.id)
 
   const totalScore = subs?.reduce((a, s) => a + s.score, 0) || 0
   const correctCount = subs?.filter(s => s.is_correct).length || 0
   const accuracy = subs?.length ? Math.round((correctCount / subs.length) * 100) : 0
+  const reasoned = subs?.filter(s => (s.reasoning_text || '').trim().length > 20).length || 0
+  const reasoning_quality = subs?.length ? Math.round((reasoned / subs.length) * 100) : 0
 
   res.json({
     user,
@@ -211,6 +234,7 @@ studentRouter.get('/profile', async (req, res) => {
       total_submissions: subs?.length || 0,
       total_score: totalScore,
       accuracy,
+      reasoning_quality,
       badges_count: badges?.length || 0
     },
     badges: badges || []
