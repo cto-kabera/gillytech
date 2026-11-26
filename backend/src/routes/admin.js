@@ -3,6 +3,7 @@ import { auth, requireRole } from '../middleware/auth.js'
 import { supabaseAdmin } from '../db/supabase.js'
 import { initialsFromName, joinCode } from '../lib/access.js'
 import { toHistoryEntry, toExportRow, rowsToCsv } from '../lib/history.js'
+import { fetchHciOverview } from '../lib/hciRoutes.js'
 
 export const adminRouter = Router()
 adminRouter.use(auth, requireRole('admin'))
@@ -312,4 +313,13 @@ adminRouter.get('/history', async (req, res) => {
     entries: page.map(toHistoryEntry),
     nextCursor: hasMore ? page[page.length - 1].created_at : null
   })
+})
+
+adminRouter.get('/hci', async (req, res) => {
+  try {
+    const data = await fetchHciOverview({ sessionId: req.query.sessionId || null })
+    res.json(data)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
 })

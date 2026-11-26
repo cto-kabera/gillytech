@@ -15,6 +15,7 @@ import StudentProfile from './pages/student/Profile'
 import { AdminLayout, AdminDashboard } from './pages/admin/Admin'
 import { AdminUsers, AdminSubjects, AdminClasses } from './pages/admin/Manage'
 import { AdminHistory } from './pages/admin/History'
+import { ComputerInteraction } from './pages/shared/ComputerInteraction'
 
 function Guard({ children, role }) {
   const { user, loading } = useAuth()
@@ -40,6 +41,7 @@ export default function App() {
             <Route path="sessions/:id/analytics" element={<Analytics />} />
             <Route path="classes" element={<ClassesList />} />
             <Route path="question-bank" element={<QuestionBank />} />
+            <Route path="computer-interaction" element={<ComputerInteraction scope="teacher" />} />
           </Route>
 
           {/* Student */}
@@ -56,6 +58,7 @@ export default function App() {
             <Route path="subjects" element={<AdminSubjects />} />
             <Route path="classes" element={<AdminClasses />} />
             <Route path="history" element={<AdminHistory />} />
+            <Route path="computer-interaction" element={<ComputerInteraction scope="admin" />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/login" replace />} />

@@ -7,6 +7,7 @@ const NAV = [
   { path: '/teacher/sessions/new',     icon: '➕', label: 'New session' },
   { path: '/teacher/classes',          icon: '🏫', label: 'Classes' },
   { path: '/teacher/question-bank',    icon: '📚', label: 'Question bank' },
+  { path: '/teacher/computer-interaction', icon: '🖱️', label: 'Computer Interaction' },
 ]
 
 export default function TeacherLayout() {

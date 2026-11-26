@@ -35,7 +35,13 @@ export const api = {
     review: id => req(`/teacher/sessions/${id}/review`),
     live: id => req(`/teacher/sessions/${id}/live`),
     questionBank: (subjectId) => req(`/teacher/question-bank${subjectId ? `?subject_id=${subjectId}` : ''}`),
-    addToBank: body => req('/teacher/question-bank', { method: 'POST', body })
+    addToBank: body => req('/teacher/question-bank', { method: 'POST', body }),
+    hci: (params = {}) => {
+      const q = new URLSearchParams()
+      if (params.sessionId) q.set('sessionId', params.sessionId)
+      const qs = q.toString()
+      return req(`/teacher/hci${qs ? `?${qs}` : ''}`)
+    }
   },
   student: {
     join: code => req(`/student/join/${code}`),
@@ -65,6 +71,12 @@ export const api = {
       if (params.cursor) q.set('cursor', params.cursor)
       const qs = q.toString()
       return req(`/admin/history${qs ? `?${qs}` : ''}`)
+    },
+    hci: (params = {}) => {
+      const q = new URLSearchParams()
+      if (params.sessionId) q.set('sessionId', params.sessionId)
+      const qs = q.toString()
+      return req(`/admin/hci${qs ? `?${qs}` : ''}`)
     },
     exportHistory: async (params = {}) => {
       const q = new URLSearchParams()

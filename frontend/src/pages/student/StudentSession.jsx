@@ -167,7 +167,11 @@ export default function StudentSession() {
         question_id: state.question.id,
         reasoning_text: reasoning,
         answer: String(selected),
-        timing: timer.collect()
+        timing: timer.collect(),
+        hci: timer.collectHci({
+          messagesSent: messages.length,
+          perceivedSyncDelayMs: connected ? 150 : 600
+        })
       })
       setResult({ ...res.submission, correct_answer: res.correct_answer, is_correct: res.is_correct, is_first_correct: res.is_first_correct, score: res.score, options: res.options })
       api.student.leaderboard(id).then(setLeaderboard).catch(() => {})
@@ -295,7 +299,10 @@ export default function StudentSession() {
                         {reasoningOk ? '✓ Good — you can now proceed to answer' : `Keep going — ${Math.max(0, 21-reasoning.trim().length)} more characters needed`}
                       </div>
                     </div>
-                    <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => setPhase('answer')} disabled={!reasoningOk}>
+                    <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => {
+                      if (!reasoningOk) { timer.onUnlockAttempt(reasoning.trim().length); return }
+                      setPhase('answer')
+                    }}>
                       Proceed to answer →
                     </button>
                     <p style={{ fontSize: 12, color: 'var(--gray-400)', textAlign: 'center', marginTop: 10 }}>

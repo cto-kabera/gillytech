@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { auth, requireRole } from '../middleware/auth.js'
 import { supabaseAdmin } from '../db/supabase.js'
 import { teacherSubjectIds } from '../lib/access.js'
+import { fetchHciOverview } from '../lib/hciRoutes.js'
 
 export const teacherRouter = Router()
 teacherRouter.use(auth, requireRole('teacher', 'admin'))
@@ -517,4 +518,17 @@ teacherRouter.post('/question-bank', async (req, res) => {
     .single()
   if (error) return res.status(500).json({ error: error.message })
   res.json({ question: { ...question, subject: question.subjects?.name || question.subject } })
+})
+
+teacherRouter.get('/hci', async (req, res) => {
+  try {
+    const teacherId = req.user.role === 'admin' ? null : req.user.id
+    const data = await fetchHciOverview({
+      sessionId: req.query.sessionId || null,
+      teacherId
+    })
+    res.json(data)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
 })

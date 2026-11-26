@@ -3,6 +3,7 @@ import { auth, requireRole } from '../middleware/auth.js'
 import { supabaseAdmin } from '../db/supabase.js'
 import { studentGroupForSession, groupMates, clientQuestion, assignToSmallestGroup } from '../lib/access.js'
 import { deriveTiming } from '../lib/deriveTiming.js'
+import { buildSubmissionHci } from '../lib/hci.js'
 
 export const studentRouter = Router()
 studentRouter.use(auth, requireRole('student', 'admin'))
@@ -90,7 +91,7 @@ studentRouter.get('/session/:id/state', async (req, res) => {
 })
 
 studentRouter.post('/session/:id/submit', async (req, res) => {
-  const { question_id, reasoning_text, answer, timing: clientTiming } = req.body || {}
+  const { question_id, reasoning_text, answer, timing: clientTiming, hci: clientHci } = req.body || {}
   if (!question_id || answer === undefined) {
     return res.status(400).json({ error: 'question_id and answer required' })
   }
@@ -123,13 +124,21 @@ studentRouter.post('/session/:id/submit', async (req, res) => {
       sessionRow?.started_at ||
       new Date().toISOString()
     const timing = deriveTiming(shownAt, new Date(), clientTiming)
+    const hci = buildSubmissionHci({
+      timing,
+      clientHci,
+      reasoningText: reasoning_text,
+      isCorrect: data?.is_correct,
+      reasoningMatchesAnswer: clientHci?.reasoningMatchesAnswer
+    })
     const { data: patched, error: patchErr } = await supabaseAdmin
       .from('submissions')
       .update({
         question_text: questionRow?.content_json?.text || null,
         options_json: questionRow?.content_json?.options || null,
         correct_answer_snapshot: questionRow?.correct_answer ?? null,
-        timing
+        timing,
+        hci
       })
       .eq('id', subId)
       .select()

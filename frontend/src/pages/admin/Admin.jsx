@@ -9,6 +9,7 @@ const NAV = [
   { path: '/admin/subjects', icon: '📘', label: 'Subjects' },
   { path: '/admin/classes', icon: '🏫', label: 'Classes' },
   { path: '/admin/history', icon: '🧠', label: 'Reasoning' },
+  { path: '/admin/computer-interaction', icon: '🖱️', label: 'Computer Interaction' },
 ]
 
 export function AdminLayout() {

@@ -1,5 +1,6 @@
 import '../load-env.js'
 import { supabaseAdmin } from './supabase.js'
+import { buildSubmissionHci } from '../lib/hci.js'
 
 async function userByEmail(email) {
   const { data, error } = await supabaseAdmin.from('users').select('*').eq('email', email).maybeSingle()
@@ -221,7 +222,8 @@ async function seedHistory(teacher, students) {
       edits: 2,
       rapid: false,
       backgrounded: false,
-      writing: { keystrokes: 72, typed: 63, deleted: 8, pauses: 2, longestPause: 3500, bursts: 3 }
+      writing: { keystrokes: 72, typed: 63, deleted: 8, pauses: 2, longestPause: 3500, bursts: 3 },
+      hciClient: { unlockAttemptsBeforeValid: 2, placeholderAttempts: 1, messagesSent: 6, groupSharePct: 0.22, turnTakingIndex: 0.68, optionChanges: 1, perceivedSyncDelayMs: 140, seq: 5 }
     },
     {
       student: brian,
@@ -238,7 +240,8 @@ async function seedHistory(teacher, students) {
       edits: 1,
       rapid: false,
       backgrounded: false,
-      writing: { keystrokes: 95, typed: 90, deleted: 4, pauses: 1, longestPause: 2100, bursts: 2 }
+      writing: { keystrokes: 95, typed: 90, deleted: 4, pauses: 1, longestPause: 2100, bursts: 2 },
+      hciClient: { unlockAttemptsBeforeValid: 0, messagesSent: 4, groupSharePct: 0.35, turnTakingIndex: 0.82, optionChanges: 0, perceivedSyncDelayMs: 120, seq: 7, reasoningMatchesAnswer: true }
     },
     {
       student: cynthia,
@@ -255,7 +258,8 @@ async function seedHistory(teacher, students) {
       edits: 3,
       rapid: false,
       backgrounded: false,
-      writing: { keystrokes: 110, typed: 88, deleted: 15, pauses: 3, longestPause: 5000, bursts: 4 }
+      writing: { keystrokes: 110, typed: 88, deleted: 15, pauses: 3, longestPause: 5000, bursts: 4 },
+      hciClient: { unlockAttemptsBeforeValid: 1, messagesSent: 5, groupSharePct: 0.28, turnTakingIndex: 0.75, optionChanges: 0, perceivedSyncDelayMs: 160, seq: 6 }
     },
     {
       student: david,
@@ -272,7 +276,8 @@ async function seedHistory(teacher, students) {
       edits: 0,
       rapid: true,
       backgrounded: false,
-      writing: { keystrokes: 28, typed: 80, deleted: 0, pauses: 0, longestPause: 0, bursts: 1 }
+      writing: { keystrokes: 28, typed: 80, deleted: 0, pauses: 0, longestPause: 0, bursts: 1 },
+      hciClient: { unlockAttemptsBeforeValid: 4, placeholderAttempts: 3, messagesSent: 1, groupSharePct: 0.08, turnTakingIndex: 0.4, optionChanges: 0, perceivedSyncDelayMs: 420, seq: 3 }
     },
     {
       student: esther,
@@ -289,7 +294,8 @@ async function seedHistory(teacher, students) {
       edits: 1,
       rapid: false,
       backgrounded: true,
-      writing: { keystrokes: 88, typed: 84, deleted: 3, pauses: 2, longestPause: 4000, bursts: 3 }
+      writing: { keystrokes: 88, typed: 84, deleted: 3, pauses: 2, longestPause: 4000, bursts: 3 },
+      hciClient: { unlockAttemptsBeforeValid: 0, messagesSent: 7, groupSharePct: 0.31, turnTakingIndex: 0.71, optionChanges: 1, perceivedSyncDelayMs: 200, seq: 6 }
     },
     {
       student: felix,
@@ -306,7 +312,8 @@ async function seedHistory(teacher, students) {
       edits: 1,
       rapid: false,
       backgrounded: false,
-      writing: { keystrokes: 70, typed: 85, deleted: 6, pauses: 1, longestPause: 2500, bursts: 2 }
+      writing: { keystrokes: 70, typed: 85, deleted: 6, pauses: 1, longestPause: 2500, bursts: 2 },
+      hciClient: { unlockAttemptsBeforeValid: 1, messagesSent: 3, groupSharePct: 0.18, turnTakingIndex: 0.55, optionChanges: 0, perceivedSyncDelayMs: 180, seq: 5 }
     }
   ].filter(r => r.student)
 
@@ -317,7 +324,28 @@ async function seedHistory(teacher, students) {
       .eq('question_id', r.question.id)
       .eq('student_id', r.student.id)
       .maybeSingle()
-    if (existing) continue
+    const timing = timingBlock({
+      shownAt: r.shownAt,
+      submittedAt: r.submittedAt,
+      planning: r.planning,
+      active: r.active,
+      edits: r.edits,
+      rapid: r.rapid,
+      backgrounded: r.backgrounded,
+      writing: r.writing
+    })
+    const hci = buildSubmissionHci({
+      timing,
+      clientHci: r.hciClient,
+      reasoningText: r.reasoning,
+      isCorrect: r.correct,
+      reasoningMatchesAnswer: r.hciClient?.reasoningMatchesAnswer ?? (r.correct ? true : r.student.email === 'amara@gillytech.dev' ? false : null)
+    })
+
+    if (existing) {
+      await supabaseAdmin.from('submissions').update({ timing, hci }).eq('id', existing.id)
+      continue
+    }
 
     const { error } = await supabaseAdmin.from('submissions').insert({
       session_id: session.id,
@@ -331,16 +359,8 @@ async function seedHistory(teacher, students) {
       question_text: r.question.content_json?.text,
       options_json: r.question.content_json?.options,
       correct_answer_snapshot: r.question.correct_answer,
-      timing: timingBlock({
-        shownAt: r.shownAt,
-        submittedAt: r.submittedAt,
-        planning: r.planning,
-        active: r.active,
-        edits: r.edits,
-        rapid: r.rapid,
-        backgrounded: r.backgrounded,
-        writing: r.writing
-      })
+      timing,
+      hci
     })
     if (error) throw error
 
@@ -353,7 +373,26 @@ async function seedHistory(teacher, students) {
     }
   }
 
-  console.log('History seed done. Session: Photosynthesis — Wk3 (admin → Reasoning)')
+  for (const r of rows) {
+    if (!r.hciClient?.seq) continue
+    const { data: ex } = await supabaseAdmin
+      .from('hci_surveys')
+      .select('id')
+      .eq('session_id', session.id)
+      .eq('student_id', r.student.id)
+      .eq('question_id', r.question.id)
+      .maybeSingle()
+    if (ex) continue
+    await supabaseAdmin.from('hci_surveys').insert({
+      session_id: session.id,
+      question_id: r.question.id,
+      student_id: r.student.id,
+      seq_score: r.hciClient.seq,
+      stage: 'post_round'
+    })
+  }
+
+  console.log('History + HCI seed done. Session: Photosynthesis — Wk3 (Admin/Teacher → Computer Interaction)')
 }
 
 seed().catch((err) => {

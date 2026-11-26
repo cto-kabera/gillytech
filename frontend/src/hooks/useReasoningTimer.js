@@ -20,6 +20,9 @@ export function useReasoningTimer(questionId) {
   const pauseCount = useRef(0)
   const longestPauseMs = useRef(0)
   const burstCount = useRef(0)
+  const unlockAttempts = useRef(0)
+  const placeholderAttempts = useRef(0)
+  const optionChanges = useRef(0)
 
   useEffect(() => {
     shownAtPerf.current = performance.now()
@@ -37,6 +40,9 @@ export function useReasoningTimer(questionId) {
     pauseCount.current = 0
     longestPauseMs.current = 0
     burstCount.current = 0
+    unlockAttempts.current = 0
+    placeholderAttempts.current = 0
+    optionChanges.current = 0
   }, [questionId])
 
   useEffect(() => {
@@ -77,8 +83,28 @@ export function useReasoningTimer(questionId) {
   }, [])
 
   const onAnswerSelected = useCallback(() => {
+    if (answerSelected.current !== null) optionChanges.current += 1
     answerSelected.current = performance.now() - shownAtPerf.current
   }, [])
+
+  const onUnlockAttempt = useCallback((reasoningLength) => {
+    unlockAttempts.current += 1
+    if (reasoningLength < 21) placeholderAttempts.current += 1
+  }, [])
+
+  const collectHci = useCallback((extras = {}) => ({
+    unlockAttemptsBeforeValid: unlockAttempts.current,
+    placeholderAttempts: placeholderAttempts.current,
+    optionChanges: optionChanges.current,
+    stanceRevisions: optionChanges.current > 0 ? 1 : 0,
+    messagesSent: extras.messagesSent ?? 0,
+    groupSharePct: extras.groupSharePct ?? null,
+    turnTakingIndex: extras.turnTakingIndex ?? null,
+    perceivedSyncDelayMs: extras.perceivedSyncDelayMs ?? null,
+    submitRetries: extras.submitRetries ?? 0,
+    prePostDiscussionAligned: extras.prePostDiscussionAligned ?? null,
+    reasoningMatchesAnswer: extras.reasoningMatchesAnswer ?? null
+  }), [])
 
   const collect = useCallback(() => ({
     firstKeystrokeOffsetMs: firstKeystroke.current === null ? null : Math.round(firstKeystroke.current),
@@ -96,5 +122,5 @@ export function useReasoningTimer(questionId) {
     clientSubmittedAtIso: new Date().toISOString()
   }), [])
 
-  return { onReasoningChange, onAnswerSelected, collect }
+  return { onReasoningChange, onAnswerSelected, onUnlockAttempt, collect, collectHci }
 }
